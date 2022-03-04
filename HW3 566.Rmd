@@ -34,7 +34,7 @@ library(htmlwidgets)
 
 In this analysis I was interested in visualizing forestation loss, particularly in the Southern hemisphere. I downloaded a spreadsheet with annual forestation percentages by country and region from https://data.worldbank.org/indicator/AG.LND.FRST.ZS
 
-I did some basic cleanup, including removing the 33 years of empty columns for most countries. I focused primarily on the change between 1990 and 2020. Thought I didn't use it in this analysis, I joined the descriptor files with the country data so I could group by region if desired.  
+I did some basic cleanup, including removing the 33 years of empty columns for most countries. I focused primarily on the change between 1990 and 2020. Thought I didn't use it in this analysis, I joined the descriptor files with the country data so I could group by region if desired. I filtered out only those regions that did not have NA values for 1990 for the 30 year analysis. For the 20 year analysis, I used 2000-2020 and removed those with NA values for 2000. I did a third with a 10 year time span, but the countries that had values were nearly identical to the 20 year analysis, so I did not plot those chosing to instead look at longer time spans. 
 
 ***
 
@@ -58,6 +58,10 @@ forest30 <- forest30 %>%
 
 #Set up data to be able to merge with map data
 forest30$region <- forest30$Country.Name
+
+#remove those without 1990 value
+forest30 <- forest30 %>% filter(!is.na(X1990))
+#head(forest30)
 ```
 
 ***   
@@ -92,20 +96,73 @@ p_forest <- p_forest +  coord_map(xlim = c(-125,180),ylim = c(-50,35))
 p_forest <- p_forest + ggtitle("Southern Hemisphere Forest Coverage Loss 1990-2020") + theme(plot.title = element_text(size=22)) + theme(legend.position="bottom")
 
 #plot with legend
-p_forest
+#p_forest
 ```
 
+
+
+```{r}
+#Include those with data from 2000 forward
+forest$loss20yr <- forest$X2020 - forest$X2000
+#head(forest)  
+
+forest20 <- forest[,c(1:2,45:67)]
+#head(forest20)
+
+forest20 <- forest20 %>%
+  left_join(countryRegion, by="Country.Code")
+
+#head(forest20)
+
+#Set up data to be able to merge with map data
+forest20$region <- forest20$Country.Name
+
+#remove those without 1990 value
+forest20 <- forest20 %>% filter(!is.na(X2000))
+#head(forest20)
+```
+
+```{r, fig.width=12, fig.height= 5}
+
+#merge map data to forestation data
+country_forest <- map_data("world") %>%
+  mutate(region = str_to_title(region),
+         subregion = str_to_title(subregion)) %>% 
+  left_join(forest20, by = "region")
+
+#country_forest %>% head(n=30)
+
+#formating to increase map size and decrease margins
+options(repr.plot.width = 14, repr.plot.height = 14)
+par(mar=c(1,1,1,1))
+
+p_forest20 <- ggplot(data = country_forest,
+            mapping = aes(x = long, y = lat, group = group, 
+                          fill = loss20yr))
+
+p_forest20 <- p_forest20 + geom_polygon(color="white")
+p_forest20 <- p_forest20 + ggdendro::theme_dendro()
+p_forest20 <- p_forest20 + scale_fill_viridis(option="viridis", direction=-1)
+p_forest20 <- p_forest20 + guides(fill=guide_legend(title="Change in Forest Coverage Percentage 2000 - 2020"))
+p_forest20 <- p_forest20 +  coord_map(xlim = c(-125,180),ylim = c(-50,35))
+p_forest20 <- p_forest20 + ggtitle("Southern Hemisphere Forest Coverage Loss 2000-2020") + theme(plot.title = element_text(size=22)) + theme(legend.position="bottom")
+
+#plot with legend
+p_forest20
+p_forest
+```
 ```{r}
 #plot with tooltip for precision changes in percentage forestation
 ggplotly(p_forest,tooltip = "loss30yr")
 ```
 
+
 ***   
 
-In this visualization, I was trying to communicate an idea of the the regions of the world most affected by deforestation. The colors closer to yellow show the greatest negative change in forest coverage while the colors closer to blue show an actual increase in forest coverage percentage. One aspect I found particularly interesting was how much more affected the southern hemisphere was. In my maps, I was getting errors with Alaska and Hawaii filling across a latitude line, so I finally cropped the map so it would not be distracting. However leaving the full map would have reinforced the degree to which South America and Africa are disproptionately affected. 
+In this visualization, I was trying to communicate an idea of the the regions of the world most affected by deforestation. The colors closer to yellow show the greatest negative change in forest coverage while the colors closer to blue show an actual increase in forest coverage percentage. One aspect I found particularly interesting was how much more affected the southern hemisphere was. In my maps, I was getting errors with Alaska and Hawaii filling across a latitude line, so I finally cropped the map so it would not be distracting. However leaving the full map would have reinforced the degree to which South America and Africa are disproptionately affected. I chose the viridis color scheme since it is green blue for areas with gains in forestation, but I might chose a red-green scheme if I was to repeat the visualization. 
 
 Since the countries in the southern hemisphere start with a greater percentage forested, one futher analysis could be to look at the proportion of loss compared to the baseline year. If I was to continue working with this map, I would consider making the display show the country, zoom by continent, as well as showing a relationship between forestation and other environmental or public health factors.
 
-I chose to have the tooltip displace the percentage change since the color scale wasn't as precise. 
+To try another tool, I selected the 30 year data and chose to have the tooltip display the percentage change since the color scale wasn't as precise. 
 
 ***
